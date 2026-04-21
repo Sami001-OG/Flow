@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useStore } from '../store/index';
 import { generateCodeStream } from '../services/llm';
 import { Send, Terminal, Loader2, Sparkles, Settings, Copy, Check } from 'lucide-react';
@@ -148,7 +150,7 @@ export function ChatPane() {
                 message.content
               ) : (
                 <>
-                  <div className="markdown-body prose prose-invert max-w-full prose-sm prose-pre:bg-transparent prose-pre:p-0 prose-pre:border-none prose-headings:text-indigo-100 prose-a:text-indigo-400 prose-code:text-indigo-300 prose-blockquote:border-indigo-500/50">
+                  <div className="markdown-body prose prose-invert max-w-full prose-sm prose-pre:bg-black/60 prose-pre:p-4 prose-pre:rounded-xl prose-pre:border prose-pre:border-indigo-500/20 prose-headings:text-indigo-100 prose-a:text-indigo-400 prose-code:text-indigo-300 prose-code:font-mono prose-code:bg-black/50 prose-code:px-1 prose-code:rounded prose-blockquote:border-indigo-500/50">
                      <Markdown
                        components={{
                          pre({ node, children }) {
