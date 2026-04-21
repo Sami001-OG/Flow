@@ -90,8 +90,11 @@ export const useStore = create<AppState>((set) => ({
     localStorage.setItem('openRouterApiKey', key);
     set({ apiKey: key });
   })(),
-  selectedModel: 'openrouter/free',
-  setSelectedModel: (model) => set({ selectedModel: model }),
+  selectedModel: localStorage.getItem('selectedModel') || 'openrouter/free',
+  setSelectedModel: (model) => Object.assign(() => {
+    localStorage.setItem('selectedModel', model);
+    set({ selectedModel: model });
+  })(),
   messages: [],
   addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),
   updateLastMessage: (content) => set((state) => {

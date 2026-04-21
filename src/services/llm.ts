@@ -11,6 +11,7 @@ export async function generateCodeStream(
 ) {
   const state = useStore.getState();
   const apiKey = state.apiKey;
+  console.log('Using model:', state.selectedModel);
   
   if (!apiKey) {
     onError('OpenRouter API Key is missing. Please configure it in the sidebar.');
