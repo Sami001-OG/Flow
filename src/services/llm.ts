@@ -2,6 +2,8 @@ import { useStore, FileSystem } from '../store/index';
 
 const SYSTEM_PROMPT = "";
 
+let lastFileParseTime = 0;
+
 export async function generateCodeStream(
   prompt: string,
   onChunk: (content: string) => void,
@@ -77,7 +79,11 @@ export async function generateCodeStream(
                     fullContent += delta;
                     
                     onChunk(fullContent);
-                    parseAndCommitFiles(fullContent, state.updateFiles);
+                    const now = Date.now();
+                    if (now - lastFileParseTime > 500) {
+                      parseAndCommitFiles(fullContent, state.updateFiles);
+                      lastFileParseTime = now;
+                    }
                  } catch (e) {
                     // Ignore transient JSON parse errors due to mid-stream parsing
                  }
