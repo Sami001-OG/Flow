@@ -1,20 +1,10 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Flow
 
-# Run and deploy your AI Studio app
+Flow is a fast, clean, and private chat interface designed for simplicity. Nothing more, nothing less.
 
-This contains everything you need to run your app locally.
+## Getting Started
 
-View your app in AI Studio: https://ai.studio/apps/fc17a7c1-2637-476d-8c32-e7a7d3d0222e
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. Clone the project.
+2. Install dependencies: `npm install`.
+3. Start the application: `npm run dev`.
+4. Open your browser to the URL, configure your API key in the settings, and start chatting.
