@@ -106,47 +106,43 @@ export async function generateCodeStream(
 // code
 // ```
 function parseAndCommitFiles(markdown: string, updateFiles: (files: FileSystem) => void) {
-  // A more robust regex that can handle partial streaming codes temporarily 
-  // by attempting to match from ### File: to the closing ``` or end of string.
-  
+  const state = useStore.getState();
   const fileRegex = /###\s*File:\s*([^\n]+)\s*\n(?:```[a-z]*\n)?([\s\S]*?)(?:```|$)/g;
   let match;
   const newFiles: FileSystem = {};
-  let anyMatch = false;
+  let hasActualChange = false;
   
   while ((match = fileRegex.exec(markdown)) !== null) {
       let path = match[1].trim();
       
-      // Enforce the /App.tsx mapping if the AI gets confused about NextJS vs standalone React routing inside Sandpack natively.
       if (path === 'App.tsx' || path === 'src/App.tsx' || path === '/src/App.tsx') {
          path = '/App.tsx';
       } else if (!path.startsWith('/')) {
-         path = '/' + path; // ensure leading slash
+         path = '/' + path;
       }
       
       const code = match[2].trim();
       
-      // Prevent picking up trailing empty blocks while streaming
-      if (code && !code.startsWith('//')) {
+      if (code && !code.startsWith('//') && state.files[path]?.code !== code) {
         newFiles[path] = { code };
-        anyMatch = true;
+        hasActualChange = true;
       }
   }
 
-  // Fallback for smaller/free models that ignore the prompt and just spit out raw code blocks
-  if (!anyMatch) {
+  // Fallback for smaller/free models
+  if (!hasActualChange) {
      const fallbackRegex = /```(?:tsx|jsx|js|ts|javascript|typescript|react|[a-zA-Z]*)\n([\s\S]*?)(?:```|$)/g;
      let fallbackMatch;
      while ((fallbackMatch = fallbackRegex.exec(markdown)) !== null) {
          const code = fallbackMatch[1].trim();
-         if (code && !code.startsWith('//')) {
+         if (code && !code.startsWith('//') && state.files['/App.tsx']?.code !== code) {
              newFiles['/App.tsx'] = { code };
-             anyMatch = true;
+             hasActualChange = true;
          }
      }
   }
   
-  if (anyMatch) {
+  if (hasActualChange) {
       updateFiles(newFiles);
   }
 }
