@@ -74,6 +74,14 @@ interface AppState {
   setMenuOpen: (val: boolean) => void;
   isSettingsOpen: boolean;
   setSettingsOpen: (val: boolean) => void;
+  provider: 'openrouter' | 'digitalocean';
+  setProvider: (provider: 'openrouter' | 'digitalocean') => void;
+  doApiKey: string;
+  setDoApiKey: (key: string) => void;
+  doEndpoint: string;
+  setDoEndpoint: (endpoint: string) => void;
+  doModel: string;
+  setDoModel: (model: string) => void;
   githubToken: string;
   setGithubToken: (val: string) => void;
   githubRepo: string;
@@ -115,6 +123,26 @@ export const useStore = create<AppState>((set) => ({
   setMenuOpen: (val) => set({ isMenuOpen: val }),
   isSettingsOpen: false,
   setSettingsOpen: (val) => set({ isSettingsOpen: val }),
+  provider: (localStorage.getItem('provider') as 'openrouter' | 'digitalocean') || 'openrouter',
+  setProvider: (val) => Object.assign(() => {
+    localStorage.setItem('provider', val);
+    set({ provider: val });
+  })(),
+  doApiKey: localStorage.getItem('doApiKey') || '',
+  setDoApiKey: (key) => Object.assign(() => {
+    localStorage.setItem('doApiKey', key);
+    set({ doApiKey: key });
+  })(),
+  doEndpoint: localStorage.getItem('doEndpoint') || '',
+  setDoEndpoint: (endpoint) => Object.assign(() => {
+    localStorage.setItem('doEndpoint', endpoint);
+    set({ doEndpoint: endpoint });
+  })(),
+  doModel: localStorage.getItem('doModel') || 'meta-llama/META-Llama-3-8B-Instruct',
+  setDoModel: (model) => Object.assign(() => {
+    localStorage.setItem('doModel', model);
+    set({ doModel: model });
+  })(),
   githubToken: localStorage.getItem('githubToken') || '',
   setGithubToken: (val) => Object.assign(() => {
     localStorage.setItem('githubToken', val);

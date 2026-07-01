@@ -44,7 +44,7 @@ function FullMessageCopy({ content }: { content: string }) {
 }
 
 export function ChatPane() {
-  const { messages, addMessage, updateLastMessage, isGenerating, setIsGenerating, selectedModel, setSettingsOpen } = useStore();
+  const { messages, addMessage, updateLastMessage, isGenerating, setIsGenerating, selectedModel, setSettingsOpen, provider, doModel } = useStore();
   const [input, setInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -117,7 +117,9 @@ export function ChatPane() {
         
           <div className="flex items-center gap-1.5 sm:gap-2 bg-indigo-500/10 border border-indigo-500/20 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full">
             <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-400" />
-            <span className="text-[10px] sm:text-xs font-semibold text-indigo-200 truncate max-w-[80px] sm:max-w-[120px]">{modelInfo?.name}</span>
+            <span className="text-[10px] sm:text-xs font-semibold text-indigo-200 truncate max-w-[80px] sm:max-w-[120px]">
+              {provider === 'digitalocean' ? (doModel.split('/').pop() || 'DO Model') : (modelInfo?.name)}
+            </span>
           </div>
         </div>
       </div>

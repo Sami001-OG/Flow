@@ -30,12 +30,14 @@ export const MODELS = [
   { id: 'google/gemini-3.1-flash-lite-preview', name: 'Gemini 3.1 Flash', provider: 'Google' },
   { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro (Legacy)', provider: 'Google' },
 
-  // 🔴 DeepSeek & Qwen
+  // 🔴 DeepSeek, Qwen & Moonshot
   { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', provider: 'DeepSeek' },
   { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3', provider: 'DeepSeek' },
   { id: 'deepseek/deepseek-coder', name: 'DeepSeek Coder', provider: 'DeepSeek' },
   { id: 'qwen/qwen3-max', name: 'Qwen 3 Max', provider: 'Qwen' },
   { id: 'qwen/qwen3.6-plus', name: 'Qwen 3.6 Plus', provider: 'Qwen' },
+  { id: 'moonshotai/moonlight-16b-a3b-instruct', name: 'Moonlight 16B Instruct', provider: 'Moonshot AI' },
+
 
   // 🟠 Meta & Mistral
   { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B Instruct', provider: 'Meta' },

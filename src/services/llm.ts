@@ -12,11 +12,18 @@ export async function generateCodeStream(
   signal?: AbortSignal
 ) {
   const state = useStore.getState();
-  const apiKey = state.apiKey;
-  console.log('Using model:', state.selectedModel);
+  
+  const isDO = state.provider === 'digitalocean';
+  const apiKey = isDO ? state.doApiKey : state.apiKey;
+  const endpoint = isDO 
+    ? (state.doEndpoint || 'https://cluster-api.do-ai.run/v1/chat/completions')
+    : 'https://openrouter.ai/api/v1/chat/completions';
+  const modelToUse = isDO ? state.doModel : state.selectedModel;
+
+  console.log('Using model:', modelToUse, 'via provider:', state.provider);
   
   if (!apiKey) {
-    onError('OpenRouter API Key is missing. Please configure it in the sidebar.');
+    onError(`${isDO ? 'DigitalOcean' : 'OpenRouter'} API Key is missing. Please configure it in the sidebar.`);
     return;
   }
 
@@ -24,7 +31,7 @@ export async function generateCodeStream(
   
   // Create payload
   const payload = {
-    model: state.selectedModel,
+    model: modelToUse,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
       ...state.messages.map(m => ({ role: m.role, content: m.content })),
@@ -34,14 +41,19 @@ export async function generateCodeStream(
   };
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    };
+
+    if (!isDO) {
+      headers['HTTP-Referer'] = window.location.origin;
+      headers['X-Title'] = 'Flow OS';
+    }
+
+    const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': window.location.origin, // Required by OpenRouter
-        'X-Title': 'DevAgent OS',
-        'Content-Type': 'application/json'
-      },
+      headers,
       body: JSON.stringify(payload),
       signal
     });
