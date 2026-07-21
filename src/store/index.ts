@@ -65,6 +65,7 @@ interface AppState {
   updateLastMessage: (content: string) => void;
   files: FileSystem;
   updateFiles: (newFiles: FileSystem) => void;
+  setFiles: (files: FileSystem) => void;
   isGenerating: boolean;
   setIsGenerating: (val: boolean) => void;
   clearChat: () => void;
@@ -74,14 +75,52 @@ interface AppState {
   setMenuOpen: (val: boolean) => void;
   isSettingsOpen: boolean;
   setSettingsOpen: (val: boolean) => void;
-  provider: 'openrouter' | 'digitalocean';
-  setProvider: (provider: 'openrouter' | 'digitalocean') => void;
+  provider: 'openrouter' | 'digitalocean' | 'openai' | 'anthropic' | 'google' | 'deepseek' | 'groq' | 'together' | 'mistral' | 'custom';
+  setProvider: (provider: 'openrouter' | 'digitalocean' | 'openai' | 'anthropic' | 'google' | 'deepseek' | 'groq' | 'together' | 'mistral' | 'custom') => void;
   doApiKey: string;
   setDoApiKey: (key: string) => void;
   doEndpoint: string;
   setDoEndpoint: (endpoint: string) => void;
   doModel: string;
   setDoModel: (model: string) => void;
+  // New Providers
+  openaiApiKey: string;
+  setOpenaiApiKey: (key: string) => void;
+  openaiModel: string;
+  setOpenaiModel: (model: string) => void;
+  anthropicApiKey: string;
+  setAnthropicApiKey: (key: string) => void;
+  anthropicModel: string;
+  setAnthropicModel: (model: string) => void;
+  googleApiKey: string;
+  setGoogleApiKey: (key: string) => void;
+  googleModel: string;
+  setGoogleModel: (model: string) => void;
+  deepseekApiKey: string;
+  setDeepseekApiKey: (key: string) => void;
+  deepseekModel: string;
+  setDeepseekModel: (model: string) => void;
+  groqApiKey: string;
+  setGroqApiKey: (key: string) => void;
+  groqModel: string;
+  setGroqModel: (model: string) => void;
+  togetherApiKey: string;
+  setTogetherApiKey: (key: string) => void;
+  togetherModel: string;
+  setTogetherModel: (model: string) => void;
+  mistralApiKey: string;
+  setMistralApiKey: (key: string) => void;
+  mistralModel: string;
+  setMistralModel: (model: string) => void;
+  customApiKey: string;
+  setCustomApiKey: (key: string) => void;
+  customEndpoint: string;
+  setCustomEndpoint: (endpoint: string) => void;
+  customModel: string;
+  setCustomModel: (model: string) => void;
+  // Proposed Feature: Prompt Optimizer & Smart Routing
+  flowOptimizerEnabled: boolean;
+  setFlowOptimizerEnabled: (val: boolean) => void;
   githubToken: string;
   setGithubToken: (val: string) => void;
   githubRepo: string;
@@ -90,7 +129,22 @@ interface AppState {
   setSecrets: (secrets: { key: string; value: string }[]) => void;
   githubDescription: string;
   setGithubDescription: (val: string) => void;
+  diagnosticLogs: DiagnosticLog[];
+  addDiagnosticLog: (log: DiagnosticLog) => void;
+  clearDiagnosticLogs: () => void;
 }
+
+export type DiagnosticLog = {
+  timestamp: string;
+  provider: string;
+  endpoint: string;
+  headers: Record<string, string>;
+  status?: number;
+  statusText?: string;
+  errorMessage?: string;
+  payload?: any;
+  responseHeaders?: Record<string, string>;
+};
 
 export const useStore = create<AppState>((set) => ({
   apiKey: localStorage.getItem('openRouterApiKey') || '',
@@ -108,12 +162,17 @@ export const useStore = create<AppState>((set) => ({
   updateLastMessage: (content) => set((state) => {
     const updatedMessages = [...state.messages];
     if (updatedMessages.length > 0) {
-      updatedMessages[updatedMessages.length - 1].content = content;
+      const lastIndex = updatedMessages.length - 1;
+      updatedMessages[lastIndex] = {
+        ...updatedMessages[lastIndex],
+        content: content
+      };
     }
     return { messages: updatedMessages };
   }),
   files: INITIAL_FILES,
   updateFiles: (newFiles) => set((state) => ({ files: { ...state.files, ...newFiles } })),
+  setFiles: (files) => set({ files }),
   isGenerating: false,
   setIsGenerating: (val) => set({ isGenerating: val }),
   clearChat: () => set({ messages: [], files: INITIAL_FILES }),
@@ -123,7 +182,7 @@ export const useStore = create<AppState>((set) => ({
   setMenuOpen: (val) => set({ isMenuOpen: val }),
   isSettingsOpen: false,
   setSettingsOpen: (val) => set({ isSettingsOpen: val }),
-  provider: (localStorage.getItem('provider') as 'openrouter' | 'digitalocean') || 'openrouter',
+  provider: (localStorage.getItem('provider') as any) || 'openrouter',
   setProvider: (val) => Object.assign(() => {
     localStorage.setItem('provider', val);
     set({ provider: val });
@@ -143,6 +202,97 @@ export const useStore = create<AppState>((set) => ({
     localStorage.setItem('doModel', model);
     set({ doModel: model });
   })(),
+  // New Providers
+  openaiApiKey: localStorage.getItem('openaiApiKey') || '',
+  setOpenaiApiKey: (key) => Object.assign(() => {
+    localStorage.setItem('openaiApiKey', key);
+    set({ openaiApiKey: key });
+  })(),
+  openaiModel: localStorage.getItem('openaiModel') || 'gpt-4o-mini',
+  setOpenaiModel: (model) => Object.assign(() => {
+    localStorage.setItem('openaiModel', model);
+    set({ openaiModel: model });
+  })(),
+  anthropicApiKey: localStorage.getItem('anthropicApiKey') || '',
+  setAnthropicApiKey: (key) => Object.assign(() => {
+    localStorage.setItem('anthropicApiKey', key);
+    set({ anthropicApiKey: key });
+  })(),
+  anthropicModel: localStorage.getItem('anthropicModel') || 'claude-3-5-sonnet-latest',
+  setAnthropicModel: (model) => Object.assign(() => {
+    localStorage.setItem('anthropicModel', model);
+    set({ anthropicModel: model });
+  })(),
+  googleApiKey: localStorage.getItem('googleApiKey') || '',
+  setGoogleApiKey: (key) => Object.assign(() => {
+    localStorage.setItem('googleApiKey', key);
+    set({ googleApiKey: key });
+  })(),
+  googleModel: localStorage.getItem('googleModel') || 'gemini-1.5-flash',
+  setGoogleModel: (model) => Object.assign(() => {
+    localStorage.setItem('googleModel', model);
+    set({ googleModel: model });
+  })(),
+  deepseekApiKey: localStorage.getItem('deepseekApiKey') || '',
+  setDeepseekApiKey: (key) => Object.assign(() => {
+    localStorage.setItem('deepseekApiKey', key);
+    set({ deepseekApiKey: key });
+  })(),
+  deepseekModel: localStorage.getItem('deepseekModel') || 'deepseek-chat',
+  setDeepseekModel: (model) => Object.assign(() => {
+    localStorage.setItem('deepseekModel', model);
+    set({ deepseekModel: model });
+  })(),
+  groqApiKey: localStorage.getItem('groqApiKey') || '',
+  setGroqApiKey: (key) => Object.assign(() => {
+    localStorage.setItem('groqApiKey', key);
+    set({ groqApiKey: key });
+  })(),
+  groqModel: localStorage.getItem('groqModel') || 'llama-3.1-70b-versatile',
+  setGroqModel: (model) => Object.assign(() => {
+    localStorage.setItem('groqModel', model);
+    set({ groqModel: model });
+  })(),
+  togetherApiKey: localStorage.getItem('togetherApiKey') || '',
+  setTogetherApiKey: (key) => Object.assign(() => {
+    localStorage.setItem('togetherApiKey', key);
+    set({ togetherApiKey: key });
+  })(),
+  togetherModel: localStorage.getItem('togetherModel') || 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
+  setTogetherModel: (model) => Object.assign(() => {
+    localStorage.setItem('togetherModel', model);
+    set({ togetherModel: model });
+  })(),
+  mistralApiKey: localStorage.getItem('mistralApiKey') || '',
+  setMistralApiKey: (key) => Object.assign(() => {
+    localStorage.setItem('mistralApiKey', key);
+    set({ mistralApiKey: key });
+  })(),
+  mistralModel: localStorage.getItem('mistralModel') || 'mistral-large-latest',
+  setMistralModel: (model) => Object.assign(() => {
+    localStorage.setItem('mistralModel', model);
+    set({ mistralModel: model });
+  })(),
+  customApiKey: localStorage.getItem('customApiKey') || '',
+  setCustomApiKey: (key) => Object.assign(() => {
+    localStorage.setItem('customApiKey', key);
+    set({ customApiKey: key });
+  })(),
+  customEndpoint: localStorage.getItem('customEndpoint') || '',
+  setCustomEndpoint: (endpoint) => Object.assign(() => {
+    localStorage.setItem('customEndpoint', endpoint);
+    set({ customEndpoint: endpoint });
+  })(),
+  customModel: localStorage.getItem('customModel') || '',
+  setCustomModel: (model) => Object.assign(() => {
+    localStorage.setItem('customModel', model);
+    set({ customModel: model });
+  })(),
+  flowOptimizerEnabled: localStorage.getItem('flowOptimizerEnabled') === 'true',
+  setFlowOptimizerEnabled: (val) => Object.assign(() => {
+    localStorage.setItem('flowOptimizerEnabled', String(val));
+    set({ flowOptimizerEnabled: val });
+  })(),
   githubToken: localStorage.getItem('githubToken') || '',
   setGithubToken: (val) => Object.assign(() => {
     localStorage.setItem('githubToken', val);
@@ -159,5 +309,10 @@ export const useStore = create<AppState>((set) => ({
     set({ secrets });
   })(),
   githubDescription: '',
-  setGithubDescription: (val) => set({ githubDescription: val })
+  setGithubDescription: (val) => set({ githubDescription: val }),
+  diagnosticLogs: [],
+  addDiagnosticLog: (log) => set((state) => ({ 
+    diagnosticLogs: [log, ...state.diagnosticLogs].slice(0, 50) // Keep last 50 logs
+  })),
+  clearDiagnosticLogs: () => set({ diagnosticLogs: [] })
 }));

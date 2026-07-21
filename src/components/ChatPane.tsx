@@ -3,12 +3,60 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useStore } from '../store/index';
 import { generateCodeStream } from '../services/llm';
-import { Send, Terminal, Loader2, Sparkles, Settings, Copy, Check } from 'lucide-react';
+import { Send, Terminal, Loader2, Sparkles, Settings, Copy, Check, Activity, AlertTriangle, Cpu } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { MODELS } from '../lib/constants';
+import { AnimatePresence } from 'motion/react';
+import { DiagnosticPanel } from './DiagnosticPanel';
+import { SmartRalphWorkspace } from './SmartRalphWorkspace';
 
 function stripMetadata(content: string) {
   return content.replace(/###\s*File:\s*([^\n]+)\n?/g, '');
+}
+
+function parseThinkingAndContent(text: string) {
+  const thinkRegex = /<think>([\s\S]*?)(?:<\/think>|$)/;
+  const match = thinkRegex.exec(text);
+  
+  if (match) {
+    const thinking = match[1].trim();
+    const content = text.replace(thinkRegex, '').trim();
+    return { thinking, content };
+  }
+  
+  return { thinking: '', content: text };
+}
+
+function ThinkingAccordion({ thinking }: { thinking: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  if (!thinking) return null;
+  
+  return (
+    <div className="mb-3 bg-indigo-500/5 border border-indigo-500/10 rounded-xl overflow-hidden text-xs">
+      <button 
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-3 py-2 font-mono text-indigo-300 hover:bg-indigo-500/10 transition-colors text-left"
+      >
+        <span className="flex items-center gap-1.5">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-500"></span>
+          </span>
+          Reasoning Process ({thinking.split(' ').length} words)
+        </span>
+        <span className="text-[9px] uppercase font-bold text-indigo-400">
+          {isOpen ? 'Hide' : 'View'}
+        </span>
+      </button>
+      {isOpen && (
+        <div className="px-3 py-2.5 border-t border-indigo-500/10 text-slate-400 leading-relaxed font-mono whitespace-pre-wrap max-h-[220px] overflow-y-auto">
+          {thinking}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CopyButton({ content }: { content: string }) {
@@ -44,8 +92,21 @@ function FullMessageCopy({ content }: { content: string }) {
 }
 
 export function ChatPane() {
-  const { messages, addMessage, updateLastMessage, isGenerating, setIsGenerating, selectedModel, setSettingsOpen, provider, doModel } = useStore();
+  const { 
+    messages, 
+    addMessage, 
+    updateLastMessage, 
+    isGenerating, 
+    setIsGenerating, 
+    selectedModel, 
+    setSettingsOpen, 
+    provider, 
+    doModel,
+    diagnosticLogs
+  } = useStore();
   const [input, setInput] = useState('');
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [showRalph, setShowRalph] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   
@@ -100,6 +161,33 @@ export function ChatPane() {
 
   const modelInfo = MODELS.find(m => m.id === selectedModel);
 
+  const getModelName = () => {
+    switch (provider) {
+      case 'openrouter':
+        return MODELS.find(m => m.id === selectedModel)?.name || 'OpenRouter';
+      case 'openai':
+        return useStore.getState().openaiModel || 'GPT-4o Mini';
+      case 'anthropic':
+        return useStore.getState().anthropicModel || 'Claude 3.5 Sonnet';
+      case 'google':
+        return useStore.getState().googleModel || 'Gemini 1.5 Flash';
+      case 'deepseek':
+        return useStore.getState().deepseekModel || 'DeepSeek Chat';
+      case 'groq':
+        return useStore.getState().groqModel || 'Groq Llama 3.1';
+      case 'together':
+        return useStore.getState().togetherModel || 'Together Llama 3.1';
+      case 'mistral':
+        return useStore.getState().mistralModel || 'Mistral Large';
+      case 'digitalocean':
+        return doModel.split('/').pop() || 'DO Model';
+      case 'custom':
+        return useStore.getState().customModel || 'Custom Model';
+      default:
+        return 'Assistant';
+    }
+  };
+
   return (
     <div className="h-full flex flex-col pt-safe bg-transparent relative z-10 w-full">
       
@@ -108,6 +196,33 @@ export function ChatPane() {
         <h1 className="text-lg sm:text-xl font-bold tracking-tight">Flow</h1>
         
         <div className="flex items-center gap-1.5 sm:gap-2">
+          <button 
+             onClick={() => setShowDiagnostics(!showDiagnostics)}
+             className={`p-1.5 sm:p-2 rounded-xl transition-all relative ${
+               showDiagnostics 
+                 ? 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 shadow-inner' 
+                 : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+             }`}
+             title="Toggle Telemetry Diagnostics"
+          >
+            <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
+            {diagnosticLogs.some(log => !log.status || log.status >= 400 || log.errorMessage) && (
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 animate-pulse border border-slate-950" />
+            )}
+          </button>
+
+          <button 
+             onClick={() => setShowRalph(!showRalph)}
+             className={`p-1.5 sm:p-2 rounded-xl transition-all relative ${
+               showRalph 
+                 ? 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 shadow-inner' 
+                 : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+             }`}
+             title="Ralph Spec Workspace"
+          >
+            <Cpu className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+
           <button 
              onClick={() => setSettingsOpen(true)}
              className="text-slate-400 hover:text-white p-2"
@@ -118,11 +233,23 @@ export function ChatPane() {
           <div className="flex items-center gap-1.5 sm:gap-2 bg-indigo-500/10 border border-indigo-500/20 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full">
             <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-400" />
             <span className="text-[10px] sm:text-xs font-semibold text-indigo-200 truncate max-w-[80px] sm:max-w-[120px]">
-              {provider === 'digitalocean' ? (doModel.split('/').pop() || 'DO Model') : (modelInfo?.name)}
+              {getModelName()}
             </span>
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showDiagnostics && (
+          <DiagnosticPanel onClose={() => setShowDiagnostics(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showRalph && (
+          <SmartRalphWorkspace onClose={() => setShowRalph(false)} />
+        )}
+      </AnimatePresence>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 space-y-4 sm:space-y-6 pb-28 sm:pb-32 scrollbar-hide">
@@ -151,29 +278,34 @@ export function ChatPane() {
               {message.role === 'user' ? (
                 message.content
               ) : (
-                <>
-                  <div className="markdown-body prose prose-invert max-w-full prose-sm prose-pre:bg-black/60 prose-pre:p-4 prose-pre:rounded-xl prose-pre:border prose-pre:border-indigo-500/20 prose-headings:text-indigo-100 prose-a:text-indigo-400 prose-code:text-indigo-300 prose-code:font-mono prose-code:bg-black/50 prose-code:px-1 prose-code:rounded prose-blockquote:border-indigo-500/50">
-                     <Markdown
-                       components={{
-                         pre({ node, children }) {
-                           const content = String(children);
-                           return (
-                             <div className="my-3 sm:my-4 bg-black/40 border border-white/10 rounded-xl p-3 sm:p-4 shadow-inner relative group">
-                                <CopyButton content={content} />
-                                {children}
-                             </div>
-                           );
-                         }
-                       }}
-                     >
-                       {stripMetadata(message.content)}
-                     </Markdown>
-                  </div>
-                  {/* Only show full message copy button if not generating */}
-                  {!isGenerating && (
-                    <FullMessageCopy content={message.content} />
-                  )}
-                </>
+                (() => {
+                  const { thinking, content: mainContent } = parseThinkingAndContent(message.content);
+                  return (
+                    <>
+                      {thinking && <ThinkingAccordion thinking={thinking} />}
+                      <div className="markdown-body prose prose-invert max-w-full prose-sm prose-pre:bg-black/60 prose-pre:p-4 prose-pre:rounded-xl prose-pre:border prose-pre:border-indigo-500/20 prose-headings:text-indigo-100 prose-a:text-indigo-400 prose-code:text-indigo-300 prose-code:font-mono prose-code:bg-black/50 prose-code:px-1 prose-code:rounded prose-blockquote:border-indigo-500/50">
+                         <Markdown
+                           components={{
+                             pre({ node, children }) {
+                               const content = String(children);
+                               return (
+                                 <div className="my-3 sm:my-4 bg-black/40 border border-white/10 rounded-xl p-3 sm:p-4 shadow-inner relative group">
+                                    <CopyButton content={content} />
+                                    {children}
+                                 </div>
+                               );
+                             }
+                           }}
+                         >
+                           {stripMetadata(mainContent)}
+                         </Markdown>
+                      </div>
+                      {!isGenerating && (
+                        <FullMessageCopy content={message.content} />
+                      )}
+                    </>
+                  );
+                })()
               )}
             </div>
           </div>

@@ -1,5 +1,5 @@
 {
   "name": "Flow",
-  "description": "A fast and personal chat interface.",
+  "description": "A personal chat interface integrated with a Spec-Driven Autonomous Agent workspace.",
   "requestFramePermissions": []
 }

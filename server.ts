@@ -15,6 +15,56 @@ async function startServer() {
   // Increase payload limit for file transfers
   app.use(express.json({ limit: '50mb' }));
 
+  // Streaming Chat Proxy Endpoint
+  app.post("/api/chat-proxy", async (req, res) => {
+    const { url, headers, body } = req.body;
+    if (!url) {
+      return res.status(400).json({ error: "No URL provided for proxying" });
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: headers || {},
+        body: typeof body === 'string' ? body : JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        return res.status(response.status).json({ error: errText });
+      }
+
+      // Set up streaming response headers only after a successful upstream response
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+
+      if (response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          res.write(chunk);
+          if (typeof (res as any).flush === 'function') {
+            (res as any).flush();
+          }
+        }
+      }
+      res.end();
+    } catch (err: any) {
+      console.error("Proxy error:", err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: err.message });
+      } else {
+        res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+        res.end();
+      }
+    }
+  });
+
   // Build APK Endpoint
   app.post("/api/build-apk", async (req, res) => {
     try {
@@ -118,6 +168,98 @@ async function startServer() {
     } catch (error: any) {
       console.error("Error in APK build pipeline:", error);
       res.status(500).json({ error: error.message || "Failed to build APK" });
+    }
+  });
+
+  // GitHub Import Endpoint (Recursively fetch files of any public repository)
+  app.get("/api/github-import", async (req, res) => {
+    const repoParam = req.query.repo as string;
+    if (!repoParam) {
+      return res.status(400).json({ error: "Repository is required" });
+    }
+
+    // Parse owner and repo name
+    let cleanRepo = repoParam.trim().replace(/^(https?:\/\/)?(www\.)?github\.com\//, "");
+    cleanRepo = cleanRepo.replace(/\/$/, "").replace(/\.git$/, "");
+    const parts = cleanRepo.split("/");
+    if (parts.length < 2) {
+      return res.status(400).json({ error: "Invalid repository format. Please use 'owner/repo'" });
+    }
+    const owner = parts[0];
+    const repoName = parts[1];
+
+    try {
+      console.log(`GitHub Import: fetching metadata for ${owner}/${repoName}...`);
+      const repoInfoResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}`, {
+        headers: { "User-Agent": "FlowOS-Agent" }
+      });
+      
+      if (!repoInfoResponse.ok) {
+        throw new Error(`Failed to fetch repo metadata: ${repoInfoResponse.statusText}`);
+      }
+      
+      const repoInfo: any = await repoInfoResponse.json();
+      const defaultBranch = repoInfo.default_branch || "main";
+
+      console.log(`GitHub Import: default branch is ${defaultBranch}. Fetching tree recursively...`);
+      const treeResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/git/trees/${defaultBranch}?recursive=1`, {
+        headers: { "User-Agent": "FlowOS-Agent" }
+      });
+
+      if (!treeResponse.ok) {
+        throw new Error(`Failed to fetch git tree: ${treeResponse.statusText}`);
+      }
+
+      const treeData: any = await treeResponse.json();
+      if (!treeData.tree) {
+        throw new Error("No tree structure found in repository.");
+      }
+
+      const files: Record<string, { code: string }> = {};
+      const allowedExtensions = [".ts", ".tsx", ".js", ".jsx", ".md", ".json", ".html", ".css", ".yaml", ".yml", ".txt", ""];
+      const ignoredDirs = ["node_modules", ".git", "dist", "build", ".github", "package-lock.json", "yarn.lock", "pnpm-lock.yaml"];
+
+      const textNodes = treeData.tree.filter((node: any) => {
+        if (node.type !== "blob") return false;
+        
+        const isIgnored = ignoredDirs.some(dir => node.path.startsWith(dir + "/") || node.path === dir);
+        if (isIgnored) return false;
+
+        // Skip other dotfiles/hidden files except specific config files
+        if (node.path.startsWith(".")) {
+          return node.path === ".env.example" || node.path === ".gitignore";
+        }
+
+        const ext = path.extname(node.path).toLowerCase();
+        return allowedExtensions.includes(ext) || ext === "";
+      });
+
+      console.log(`GitHub Import: found ${textNodes.length} candidates. Fetching top 45 text files...`);
+      const filesToFetch = textNodes.slice(0, 45);
+
+      await Promise.all(
+        filesToFetch.map(async (node: any) => {
+          try {
+            const rawUrl = `https://raw.githubusercontent.com/${owner}/${repoName}/${defaultBranch}/${node.path}`;
+            const rawResponse = await fetch(rawUrl, {
+              headers: { "User-Agent": "FlowOS-Agent" }
+            });
+            if (rawResponse.ok) {
+              const content = await rawResponse.text();
+              const virtualPath = node.path.startsWith("/") ? node.path : "/" + node.path;
+              files[virtualPath] = { code: content };
+            }
+          } catch (err) {
+            console.error(`Failed to fetch raw file ${node.path}:`, err);
+          }
+        })
+      );
+
+      console.log(`GitHub Import: successfully imported ${Object.keys(files).length} files.`);
+      res.json({ owner, repo: repoName, defaultBranch, files });
+    } catch (err: any) {
+      console.error("GitHub import error:", err);
+      res.status(500).json({ error: err.message || "Failed to import repository" });
     }
   });
 
